@@ -63,6 +63,7 @@
         var ps = paper.PaperScope.get(scope.paperScopeId);
 
         var currentObject = null;
+        var textRowMouseDown;
         ps.tool = new ps.Tool();
         ps.tool.minDistance = 3;
 
@@ -114,35 +115,28 @@
                     currentObject.fillColor = 'black';
                     currentObject.strokeWidth = 2;
                     break;
-                case 'underline':
-                    var start = new ps.Point(event.point);
-                    $rootScope.startRow = getStartRow($rootScope.docInfo,start,attrs);
-                    $rootScope.startText = $rootScope.startRow[0].characterCoordinates.filter(x=>Math.floor(x) > Math.floor(start.x));
-                    if($rootScope.startText.length>1){
-                        currentObject = new ps.Path.Line(new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight), new ps.Point($rootScope.startText[1], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight));
-                        currentObject.strokeColor = 'black';
-                        currentObject.strokeWidth = 2;
-                    }
-                    else if($rootScope.startText.length>1){
-                        currentObject = new ps.Path.Line(new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight), new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight));
-                        currentObject.strokeColor = 'black';
-                        currentObject.strokeWidth = 2;
-                    }
+                case 'text-highlight':
+                    textRowMouseDown = findRowUnderPoint($rootScope.docInfo, attrs.number, event.point);
+                    currentObject = new ps.Path.Rectangle(new ps.Rectangle(
+                        event.point.x,
+                        textRowMouseDown.lineTop,
+                        1,
+                        textRowMouseDown.lineHeight)
+                    );
+                    currentObject.fillColor = 'yellow';
+                    currentObject.opacity = 0.3;
                     break;
+                case 'underline':
                 case 'strikeout':
-                    var start = new ps.Point(event.point);
-                    $rootScope.startRow = getStartRow($rootScope.docInfo,start,attrs);
-                    $rootScope.startText = $rootScope.startRow[0].characterCoordinates.filter(x=>Math.floor(x) > Math.floor(start.x));
-                    if($rootScope.startText.length>1){
-                        currentObject = new ps.Path.Line(new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2), new ps.Point($rootScope.startText[1], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2));
-                        currentObject.strokeColor = 'black';
-                        currentObject.strokeWidth = 2;
-                    }
-                    else if($rootScope.startText.length>1){
-                        currentObject = new ps.Path.Line(new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2), new ps.Point($rootScope.startText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2));
-                        currentObject.strokeColor = 'black';
-                        currentObject.strokeWidth = 2;
-                    }
+                    textRowMouseDown = findRowUnderPoint($rootScope.docInfo, attrs.number, event.point);
+                    currentObject = new ps.Path.Rectangle(new ps.Rectangle(
+                        event.point.x,
+                        textRowMouseDown.lineTop,
+                        1,
+                        textRowMouseDown.lineHeight)
+                    );
+                    currentObject.fillColor = 'black';
+                    currentObject.opacity = 0.3;
                     break;
             }
         };
@@ -150,14 +144,14 @@
         ps.tool.onMouseDrag = function (event) {
             switch ($rootScope.selectedDrawingTool) {
                 case 'select':
-                    angular.forEach(scope.annotationsList, function (item) {
-                        if (currentObject && item.annotation.guid === currentObject.name && item.annotation.type === 4 && item.annotation.type === 8) {
+                    var currentAnnotation = findAnnotationByGuid(scope.annotationsList, $rootScope.selectedAnnotationGuid);
+                    if (currentObject !== null && currentAnnotation !== null) {
+                        if ([3, 4, 8, 11].indexOf(currentAnnotation.annotation.type) < 0) {
+                            currentObject.position.x += event.delta.x;
+                            currentObject.position.y += event.delta.y;
+                        } else {
                             currentObject = null;
                         }
-                    });
-                    if (currentObject) {
-                        currentObject.position.x += event.delta.x;
-                        currentObject.position.y += event.delta.y;
                     }
                     break;
                 case 'rectangle':
@@ -171,29 +165,13 @@
                     currentObject.position.x += event.delta.x;
                     currentObject.position.y += event.delta.y;
                     break;
+                case 'text-highlight':
                 case 'underline':
-                    if(currentObject){
-                        var end = new ps.Point(event.point);
-                        var endText = $rootScope.startRow[0].characterCoordinates.filter(x=>Math.floor(x) > Math.floor(end.x));
-                        if(endText.length>1){
-                            currentObject.add(new ps.Point(endText[1], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight));
-                        }
-                        else if(endText.length>0){
-                            currentObject.add(new ps.Point(endText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight));
-                        }
-                    }
-                    break;
                 case 'strikeout':
-                    if(currentObject){
-                        var end = new ps.Point(event.point);
-                        var endText = $rootScope.startRow[0].characterCoordinates.filter(x=>Math.floor(x) > Math.floor(end.x));
-                        if(endText.length>1){
-                            currentObject.add(new ps.Point(endText[1], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2));
+                    if (currentObject !== null) {
+                        if (currentObject.bounds.x + currentObject.bounds.width + event.delta.x <= textRowMouseDown.lineWidth) {
+                            currentObject.bounds.width += event.delta.x;
                         }
-                        else if(endText.length>0){
-                            currentObject.add(new ps.Point(endText[0], $rootScope.startRow[0].lineTop + $rootScope.startRow[0].lineHeight/2));
-                        }
-
                     }
                     break;
                 case 'arrow':
@@ -219,13 +197,13 @@
                     currentObject.strokeWidth = 2;
                     break;
                 case 'distance':
-                    if(currentObject){
+                    if (currentObject) {
                         currentObject.remove();
                     }
                     var start = new ps.Point(event.downPoint);
                     var end = new ps.Point(event.point);
-                    var textX = (start.x + end.x)/2;
-                    var textY = (start.y + end.y)/2;
+                    var textX = (start.x + end.x) / 2;
+                    var textY = (start.y + end.y) / 2;
                     var textPoint = new ps.Point(textX, textY);
                     var tailLine = new ps.Path.Line(start, end);
                     var textPosition = end.add(start);
@@ -280,15 +258,26 @@
                             width: currentObject.bounds.width,
                             height: currentObject.bounds.height
                         },
+                        penColor: 0x010101,
+                        penStyle: 1,
+                        penWidth: 2,
                         type: 1
                     };
                     break;
                 case 'pencil':
-                    ant.type = 4;
-                    ant.svgPath = currentObject.exportSVG().getAttribute('d');
+                    ant = angular.merge({}, ant, {
+                        penColor: 0x010101,
+                        penStyle: 1,
+                        penWidth: 2,
+                        svgPath: extractSvgPathData(currentObject),
+                        type: 4
+                    });
                     break;
                 case 'point':
                     ant = angular.merge({}, ant, {
+                        penColor: 0x010101,
+                        penStyle: 1,
+                        penWidth: 2,
                         type: 2,
                         box: {
                             x: event.point.x,
@@ -299,16 +288,23 @@
                     });
                     break;
                 case 'arrow':
-                    ant.type = 8;
-                    ant.svgPath = currentObject.exportSVG().firstChild.getAttribute('d');
-                    ant.svgPath += " " + currentObject.exportSVG().lastChild.getAttribute('d');
+                    ant = angular.merge({}, ant, {
+                        penColor: 0x010101,
+                        penStyle: 1,
+                        penWidth: 2,
+                        svgPath: extractSvgPathData(currentObject),
+                        type: 8
+                    });
                     break;
                 case 'distance':
                     ant = {
-                        type : 12,
-                        svgPath : currentObject.exportSVG().children[0].getAttribute('d')+ " " + currentObject.exportSVG().children[1].getAttribute('d') + " " + currentObject.exportSVG().children[2].getAttribute('d'),
-                        text : currentObject.children[3].content,
-                        box : {
+                        penColor: 0x010101,
+                        penStyle: 1,
+                        penWidth: 2,
+                        type: 12,
+                        svgPath: extractSvgPathData(currentObject),
+                        fieldText: currentObject.children[3].content,
+                        box: {
                             x: currentObject.children[3].position.x,
                             y: currentObject.children[3].position.y,
                             width: 0,
@@ -316,36 +312,107 @@
                         }
                     };
                     break;
+                case 'text-highlight':
                 case 'underline':
-                    ant = {
-                        type : 11,
-                        svgPath : currentObject.exportSVG().getAttribute('d'),
-                        box: {
-                            x: currentObject.bounds.x,
-                            y: currentObject.bounds.y,
-                            width: 0,
-                            height: 0
-                        },
-                    };
-                    break;
                 case 'strikeout':
-                    ant = {
-                        type : 11,
-                        svgPath : currentObject.exportSVG().getAttribute('d'),
-                        box: {
-                            x: currentObject.bounds.x,
-                            y: currentObject.bounds.y,
-                            width: 0,
-                            height: 0
-                        },
-                    };
+                    if (currentObject !== null) {
+                        ant = angular.merge({}, ant, {
+                            svgPath: JSON.stringify([
+                                {
+                                    X: currentObject.bounds.x,
+                                    Y: attrs.height - currentObject.bounds.y
+                                },
+                                {
+                                    X: currentObject.bounds.x + currentObject.bounds.width,
+                                    Y: attrs.height - currentObject.bounds.y
+                                },
+                                {
+                                    X: currentObject.bounds.x,
+                                    Y: attrs.height - currentObject.bounds.y - currentObject.bounds.height
+                                },
+                                {
+                                    X: currentObject.bounds.x + currentObject.bounds.width,
+                                    Y: attrs.height - currentObject.bounds.y - currentObject.bounds.height
+                                }
+                            ]),
+                            box: {
+                                x: currentObject.bounds.x,
+                                y: attrs.height - currentObject.bounds.y,
+                                width: currentObject.bounds.width,
+                                height: currentObject.bounds.height
+                            },
+                            annotationPosition: {
+                                x: currentObject.bounds.x,
+                                y: attrs.height - currentObject.bounds.y
+                            }
+                        });
+                        currentObject.remove();
+                        switch ($rootScope.selectedDrawingTool) {
+                            case 'text-highlight':
+                                currentObject = new ps.Path.Rectangle(new ps.Rectangle(
+                                    currentObject.bounds.x,
+                                    currentObject.bounds.y,
+                                    currentObject.bounds.width,
+                                    currentObject.bounds.height
+                                ));
+                                currentObject.fillColor = 'yellow';
+                                currentObject.opacity = 0.3;
+                                ant = angular.merge({}, ant, {
+                                    penColor: 0xffff01,
+                                    penStyle: 1,
+                                    penWidth: 2,
+                                    type: 0
+                                });
+                                break;
+                            case 'underline':
+                                currentObject = new ps.Path.Line({
+                                    from: [
+                                        currentObject.bounds.x,
+                                        currentObject.bounds.y + currentObject.bounds.height
+                                    ],
+                                    to: [
+                                        currentObject.bounds.x + currentObject.bounds.width,
+                                        currentObject.bounds.y + currentObject.bounds.height
+                                    ],
+                                    strokeColor: 'black'
+                                });
+                                ant = angular.merge({}, ant, {
+                                    penColor: 0x010101,
+                                    penStyle: 1,
+                                    penWidth: 2,
+                                    type: 11
+                                });
+                                break;
+                            case 'strikeout':
+                                currentObject = new ps.Path.Line({
+                                    from: [
+                                        currentObject.bounds.x,
+                                        currentObject.bounds.y + currentObject.bounds.height / 2.0
+                                    ],
+                                    to: [
+                                        currentObject.bounds.x + currentObject.bounds.width,
+                                        currentObject.bounds.y + currentObject.bounds.height / 2.0
+                                    ],
+                                    strokeColor: 'black'
+                                });
+                                ant = angular.merge({}, ant, {
+                                    penColor: 0x010101,
+                                    penStyle: 1,
+                                    penWidth: 2,
+                                    type: 3
+                                });
+                                break;
+                        }
+                    }
                     break;
             }
 
-            if (ant.type) {
-                ant.pageNumber = attrs.number;
+            if (typeof(ant.type) !== 'undefined') {
+                ant = angular.merge({}, ant, {
+                    pageNumber: attrs.number
+                });
                 var a = new AnnotationAddFactory(ant);
-                a.$save({ filename: $rootScope.selectedFile }, function (response) {
+                a.$save({filename: $rootScope.selectedFile}, function (response) {
                     currentObject.name = response.guid;
                     currentObject.selected = true;
                     currentObject = null;
@@ -356,6 +423,20 @@
                 });
             } else {
                 currentObject = null;
+            }
+        };
+
+        ps.tool.onMouseMove = function (event) {
+            switch ($rootScope.selectedDrawingTool) {
+                case 'text-highlight':
+                case 'underline':
+                case 'strikeout':
+                    var r = findRowUnderPoint($rootScope.docInfo, attrs.number, event.point);
+                    if (typeof(r) !== 'undefined') {
+                        document.body.style.cursor = 'text';
+                    } else {
+                        document.body.style.cursor = 'auto';
+                    }
             }
         };
 
@@ -437,18 +518,34 @@
                     arrow.name = item.annotation.guid;
                     break;
                 case 11:
-                    var line = new ps.Path();
-                    line.pathData = item.annotation.svgPath;
-                    line.strokeColor = 'black';
-                    line.strokeWidth = 2;
-                    line.name = item.annotation.guid;
+                    var line11 = new ps.Path.Line({
+                        from: [
+                            JSON.parse(item.annotation.svgPath)[2].X,
+                            attrs.height - JSON.parse(item.annotation.svgPath)[2].Y
+                        ],
+                        to: [
+                            JSON.parse(item.annotation.svgPath)[3].X,
+                            attrs.height - JSON.parse(item.annotation.svgPath)[3].Y
+                        ],
+                        strokeColor: 'black',
+                        strokeWidth: 1,
+                        name: item.annotation.guid
+                    });
                     break;
                 case 3:
-                    var line = new ps.Path();
-                    line.pathData = item.annotation.svgPath;
-                    line.strokeColor = 'black';
-                    line.strokeWidth = 2;
-                    line.name = item.annotation.guid;
+                    var line3 = new ps.Path.Line({
+                        from: [
+                            JSON.parse(item.annotation.svgPath)[2].X,
+                            attrs.height - (JSON.parse(item.annotation.svgPath)[0].Y + JSON.parse(item.annotation.svgPath)[2].Y) / 2.0
+                        ],
+                        to: [
+                            JSON.parse(item.annotation.svgPath)[3].X,
+                            attrs.height - (JSON.parse(item.annotation.svgPath)[1].Y + JSON.parse(item.annotation.svgPath)[3].Y) / 2.0
+                        ],
+                        strokeColor: 'black',
+                        strokeWidth: 1,
+                        name: item.annotation.guid
+                    });
                     break;
                 case 12:
                     var distance = new ps.Group([
@@ -463,20 +560,39 @@
                     distance.children[3].strokeWidth = 0.5;
                     distance.name = item.annotation.guid;
                     break;
+                case 0:
+                    var shape = new ps.Rectangle(
+                        item.annotation.box.x,
+                        attrs.height - item.annotation.box.y,
+                        item.annotation.box.width,
+                        item.annotation.box.height
+                    );
+                    var path = new ps.Path.Rectangle(shape);
+                    path.fillColor = 'yellow';
+                    path.opacity = 0.3;
+                    path.name = item.annotation.guid;
+                    break;
             }
         })
     }
-    function getStartRow(docInfo,start,attrs){
+
+    function getStartRow(docInfo, start, attrs) {
         var startRow = [];
-        for(var i = 0; i<30; i++){
-            startRow = docInfo.pages[attrs.number-1].rows.filter(x => Math.floor(x.lineTop) == (Math.floor(start.y)-i ));
-            if(startRow.length>0)
+        for (var i = 0; i < 30; i++) {
+            startRow = docInfo.pages[attrs.number].rows.filter(function (x) {
+                    Math.floor(x.lineTop) == (Math.floor(start.y) - i )
+                }
+            )
+            ;
+            if (startRow.length > 0)
                 return startRow;
         }
-        if(startRow.length == 0)
-            for(var i = 0; i<30; i++){
-                startRow = docInfo.pages[attrs.number-1].rows.filter(x => Math.floor(x.lineTop) == (Math.floor(start.y)+i ));
-                if(startRow.length>0)
+        if (startRow.length == 0)
+            for (var i = 0; i < 30; i++) {
+                startRow = docInfo.pages[attrs.number].rows.filter(function (x) {
+                    return Math.floor(x.lineTop) == (Math.floor(start.y) + i )
+                });
+                if (startRow.length > 0)
                     return startRow;
             }
 
@@ -506,6 +622,45 @@
             }
 
         });
+    }
+
+    function extractSvgPathData(object) {
+        var svg = object.exportSVG();
+        var data = '';
+
+        if (svg.nodeName === 'path') {
+            data = object.exportSVG().getAttribute('d')
+        } else if (svg.nodeName === 'g') {
+            angular.forEach(svg.children, function (value) {
+                if (value.nodeName === 'path') {
+                    data += value.getAttribute('d');
+                    data += ' ';
+                }
+            });
+        }
+
+        return data;
+    }
+
+    function findRowUnderPoint(docInfo, page, point) {
+        var currentRow = docInfo.pages[page].rows.filter(function (row) {
+            return row.lineLeft <= point.x && point.x <= row.lineLeft + row.lineWidth
+                && row.lineTop <= point.y && point.y <= row.lineTop + row.lineHeight;
+        });
+
+        return currentRow[0];
+    }
+
+    function findAnnotationByGuid(annotationInfo, guid) {
+        var a = annotationInfo.filter(function (item) {
+            return item.annotation.guid === guid;
+        });
+
+        if (a.length > 0) {
+            return a[0];
+        }
+
+        return null;
     }
 
     angular.module('GroupDocsAnnotationApp').directive('gdxAnnoPage', main, ['cfpLoadingBar']);

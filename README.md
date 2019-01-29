@@ -1,4 +1,12 @@
-# GroupDocs.Annotation for Java using Servlets
+![Outdated](http://alexbobkov.com/resources/image/outdated.png)
+  
+This repository is outdated, instead please use one of the following repositories:  
+https://github.com/groupdocs-annotation/GroupDocs.Annotation-for-Java-Dropwizard  
+https://github.com/groupdocs-annotation/GroupDocs.Annotation-for-Java-Spring
+
+# GroupDocs.Annotation for Java App
+
+![](https://i.imgur.com/1lur2Il.png)
 
 This application allows user to view and annotate a document in a web browser. Users can view document pages in image form and draw annotations on it. The annotated file can be downloaded later.
 
@@ -6,7 +14,7 @@ This application allows user to view and annotate a document in a web browser. U
 
 * Java Development Kit (JDK) 8
 * Maven 3
-* Any latest browsers (Firefox, Chrome, IE9 or greater, Safari etc. )
+* Any latest browsers (Firefox, Chrome, IE9 or greater, Safari etc.)
 
 # How to Run Application
 
